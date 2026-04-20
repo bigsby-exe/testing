@@ -1,0 +1,23 @@
+{
+  "version": "2.0",
+  "logging": {
+    "applicationInsights": {
+      "samplingSettings": {
+        "isEnabled": true,
+        "excludedTypes": "Request"
+      }
+    }
+  },
+  "managedDependency": {
+    "enabled": true
+  },
+  "extensionBundle": {
+    "id": "Microsoft.Azure.Functions.ExtensionBundle",
+    "version": "[4.*, 5.0.0)"
+  },
+  "applicationSettings": {
+    "DAILY_SCHEDULE": "0 0 2 * * *",
+    "INACTIVITY_DAYS": "90",
+    "TARGET_GROUP_ID": ""
+  }
+}
