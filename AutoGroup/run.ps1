@@ -1,6 +1,5 @@
 param($Timer)
 
-Import-Module Microsoft.Graph.Authentication
 Import-Module Microsoft.Graph
 
 $currentUTCtime = (Get-Date).ToUniversalTime()
