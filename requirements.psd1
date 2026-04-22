@@ -1,3 +1,4 @@
 @{
-    'Microsoft.Graph.Authentication' = '2.21.0'
+    Az = '7.1.0'
+    Microsoft.Graph='2.36.1'
 }
