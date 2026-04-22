@@ -1,5 +1,7 @@
 param($Timer)
 
+Import-Module Microsoft.Graph.Authentication
+
 $currentUTCtime = (Get-Date).ToUniversalTime()
 
 if ($Timer.IsPastDue) {
