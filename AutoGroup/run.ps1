@@ -1,6 +1,6 @@
 param($Timer)
 
-Import-Module Microsoft.Graph
+Import-Module Az
 
 $currentUTCtime = (Get-Date).ToUniversalTime()
 
@@ -24,17 +24,17 @@ if (-not $targetGroupId) {
 
 Write-Host "Looking for users inactive for $inactivityDays days"
 
-$cutoffDate = (Get-Date).AddDays(-$inactivityDays).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+$cutoffDate = (Get-Date).AddDays(-$inactivityDays).ToUniversalTime()
 
 try {
-    Connect-MgGraph -Scopes "User.Read.All", "Group.ReadWrite.All" -NoWelcome
-    Write-Host "Connected to Microsoft Graph"
+    Connect-AzAccount -Identity
+    Write-Host "Connected to Azure"
 } catch {
-    Write-Error "Failed to connect to Microsoft Graph: $_"
+    Write-Error "Failed to connect to Azure: $_"
     exit 1
 }
 
-$group = Get-MgGroup -GroupId $targetGroupId -ErrorAction SilentlyContinue
+$group = Get-AzADGroup -ObjectId $targetGroupId -ErrorAction SilentlyContinue
 
 if (-not $group) {
     Write-Error "Target group not found"
@@ -43,17 +43,13 @@ if (-not $group) {
 
 Write-Host "Target group: $($group.DisplayName) ($targetGroupId)"
 
-$users = Get-MgUser -All -Property "id,displayName,userPrincipalName,signInActivity,accountEnabled" -Filter "signInActivity/lastSignInDateTime le $cutoffDate" -ErrorAction SilentlyContinue
-
-if (-not $users) {
-    $users = @()
-    $allUsers = Get-MgUser -All -Property "id,displayName,userPrincipalName,signInActivity,accountEnabled" -ErrorAction SilentlyContinue
-    foreach ($user in $allUsers) {
-        if ($user.SignInActivity -and $user.SignInActivity.LastSignInDateTime) {
-            $lastSignIn = [DateTime]::Parse($user.SignInActivity.LastSignInDateTime)
-            if ($lastSignIn -lt (Get-Date).AddDays(-$inactivityDays)) {
-                $users += $user
-            }
+$allUsers = Get-AzADUser -All -ErrorAction SilentlyContinue
+$users = @()
+foreach ($user in $allUsers) {
+    if ($user.AccountEnabled -and $user.SignInActivity -and $user.SignInActivity.LastSignInDateTime) {
+        $lastSignIn = [DateTime]::Parse($user.SignInActivity.LastSignInDateTime)
+        if ($lastSignIn -lt $cutoffDate) {
+            $users += $user
         }
     }
 }
@@ -66,13 +62,10 @@ foreach ($user in $users) {
         try {
             $userId = $user.Id
             
-            Update-MgUser -UserId $userId -AccountEnabled:$false -ErrorAction Stop
+            Update-AzADUser -ObjectId $userId -AccountEnabled:$false -ErrorAction Stop
             Write-Host "Disabled account: $($user.DisplayName) ($($user.UserPrincipalName))"
             
-            $memberParams = @{
-                "@odata.id" = "https://graph.microsoft.com/v1.0/directoryObjects/$userId"
-            }
-            New-MgGroupMember -GroupId $targetGroupId -BodyParameter $memberParams -ErrorAction Stop
+            Add-AzADGroupMember -GroupObjectId $targetGroupId -MemberObjectId $userId -ErrorAction Stop
             Write-Host "Added to group: $($user.DisplayName)"
             
             $processed++
