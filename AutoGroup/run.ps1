@@ -1,6 +1,6 @@
 param($Timer)
 
-Import-Module Az
+Import-Module Microsoft.Graph
 
 $currentUTCtime = (Get-Date).ToUniversalTime()
 
@@ -25,16 +25,17 @@ if (-not $targetGroupId) {
 Write-Host "Looking for users inactive for $inactivityDays days"
 
 $cutoffDate = (Get-Date).AddDays(-$inactivityDays).ToUniversalTime()
+$cutoffDateString = $cutoffDate.ToString("yyyy-MM-ddTHH:mm:ssZ")
 
 try {
-    Connect-AzAccount -Identity
-    Write-Host "Connected to Azure"
+    Connect-MgGraph -Scopes "User.Read.All", "Group.ReadWrite.All" -NoWelcome
+    Write-Host "Connected to Microsoft Graph"
 } catch {
-    Write-Error "Failed to connect to Azure: $_"
+    Write-Error "Failed to connect to Microsoft Graph: $_"
     exit 1
 }
 
-$group = Get-AzADGroup -ObjectId $targetGroupId -ErrorAction SilentlyContinue
+$group = Get-MgGroup -GroupId $targetGroupId -ErrorAction SilentlyContinue
 
 if (-not $group) {
     Write-Error "Target group not found"
@@ -43,7 +44,7 @@ if (-not $group) {
 
 Write-Host "Target group: $($group.DisplayName) ($targetGroupId)"
 
-$allUsers = Get-AzADUser -All -ErrorAction SilentlyContinue
+$allUsers = Get-MgUser -All -Property "id,displayName,userPrincipalName,signInActivity,accountEnabled" -ErrorAction SilentlyContinue
 $users = @()
 foreach ($user in $allUsers) {
     if ($user.AccountEnabled -and $user.SignInActivity -and $user.SignInActivity.LastSignInDateTime) {
@@ -62,10 +63,13 @@ foreach ($user in $users) {
         try {
             $userId = $user.Id
             
-            Update-AzADUser -ObjectId $userId -AccountEnabled:$false -ErrorAction Stop
+            Update-MgUser -UserId $userId -AccountEnabled:$false -ErrorAction Stop
             Write-Host "Disabled account: $($user.DisplayName) ($($user.UserPrincipalName))"
             
-            Add-AzADGroupMember -GroupObjectId $targetGroupId -MemberObjectId $userId -ErrorAction Stop
+            $memberParams = @{
+                "@odata.id" = "https://graph.microsoft.com/v1.0/directoryObjects/$userId"
+            }
+            New-MgGroupMember -GroupId $targetGroupId -BodyParameter $memberParams -ErrorAction Stop
             Write-Host "Added to group: $($user.DisplayName)"
             
             $processed++

@@ -1,3 +1,3 @@
 @{
-    'Az' = '15.*'
+    'Microsoft.Graph' = '2.*'
 }
