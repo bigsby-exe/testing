@@ -28,7 +28,7 @@ Write-Host "Looking for users inactive for $inactivityDays days"
 $cutoffDate = (Get-Date).AddDays(-$inactivityDays).ToUniversalTime()
 
 try {
-    Connect-Entra -Scopes "User.ReadWrite.All", "Group.ReadWrite.All", "AuditLog.Read.All" -NoWelcome
+    Connect-Entra -Scopes "User.ReadWrite.All", "Group.ReadWrite.All", "AuditLog.Read.All" -NoWelcome -Identity
     Write-Host "Connected to Microsoft Entra"
 } catch {
     Write-Error "Failed to connect to Microsoft Entra: $_"
