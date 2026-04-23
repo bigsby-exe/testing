@@ -6,10 +6,10 @@ Import-Module Microsoft.Entra.Groups
 $currentUTCtime = (Get-Date).ToUniversalTime()
 
 if ($Timer.IsPastDue) {
-    Write-Host "PowerShell timer is running late!"
+    Write-Host "Timer is running late!"
 }
 
-Write-Host "PowerShell timer trigger function started! TIME: $currentUTCtime"
+Write-Host "Timer trigger function started! TIME: $currentUTCtime"
 
 $inactivityDays = [int]$env:INACTIVITY_DAYS
 $targetGroupId = $env:TARGET_GROUP_ID
@@ -30,9 +30,9 @@ $cutoffDate = (Get-Date).AddDays(-$inactivityDays).ToUniversalTime()
 try {
     #Connect-Entra -Scopes "User.ReadWrite.All", "Group.ReadWrite.All", "AuditLog.Read.All" -NoWelcome -Identity
     Connect-Entra -Identity -NoWelcome
-    Write-Host "Connected to Microsoft Entra"
+    Write-Host "Connected to Entra"
 } catch {
-    Write-Error "Failed to connect to Microsoft Entra: $_"
+    Write-Error "Failed to connect to Entra: $_"
     exit 1
 }
 
@@ -73,4 +73,4 @@ foreach ($user in $users) {
 }
 
 Write-Host "Processed $processed users"
-Write-Host "PowerShell timer trigger function completed!"
+Write-Host "function completed!"
