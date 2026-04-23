@@ -1,3 +1,3 @@
 @{
-    'Microsoft.Entra' = '1.2.0'
+    'Microsoft.Entra' = '1.2.*'
 }
