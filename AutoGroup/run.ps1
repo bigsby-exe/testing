@@ -36,7 +36,7 @@ try {
     exit 1
 }
 
-$group = Get-EntraGroup -GroupId $targetGroupId -ErrorAction SilentlyContinue
+$group = Get-EntraGroup -GroupId $targetGroupId
 
 if (-not $group) {
     Write-Error "Target group not found"
@@ -45,7 +45,7 @@ if (-not $group) {
 
 Write-Host "Target group: $($group.DisplayName) ($targetGroupId)"
 
-$allUsers = Get-EntraUser -All -Filter "accountEnabled eq true and userType eq 'Member'" -Property "id,displayName,userPrincipalName,signInActivity" -ErrorAction SilentlyContinue
+$allUsers = Get-EntraUser -All -Filter "accountEnabled eq true and userType eq 'Member'" -Property "id,displayName,userPrincipalName,signInActivity"
 
 $users = $allUsers | Where-Object {
     $_.SignInActivity -and
