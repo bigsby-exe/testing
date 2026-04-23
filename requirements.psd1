@@ -1,3 +1,3 @@
 @{
-    'Microsoft.Graph' = '2.25.0'
+    'Microsoft.Entra' = '1.2.0'
 }

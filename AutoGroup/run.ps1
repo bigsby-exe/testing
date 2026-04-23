@@ -1,6 +1,7 @@
 param($Timer)
 
-Import-Module Microsoft.Graph
+Import-Module Microsoft.Entra.Users
+Import-Module Microsoft.Entra.Groups
 
 $currentUTCtime = (Get-Date).ToUniversalTime()
 
@@ -25,17 +26,16 @@ if (-not $targetGroupId) {
 Write-Host "Looking for users inactive for $inactivityDays days"
 
 $cutoffDate = (Get-Date).AddDays(-$inactivityDays).ToUniversalTime()
-$cutoffDateString = $cutoffDate.ToString("yyyy-MM-ddTHH:mm:ssZ")
 
 try {
-    Connect-MgGraph -Scopes "User.Read.All", "Group.ReadWrite.All" -NoWelcome
-    Write-Host "Connected to Microsoft Graph"
+    Connect-Entra -Scopes "User.ReadWrite.All", "Group.ReadWrite.All", "AuditLog.Read.All" -NoWelcome
+    Write-Host "Connected to Microsoft Entra"
 } catch {
-    Write-Error "Failed to connect to Microsoft Graph: $_"
+    Write-Error "Failed to connect to Microsoft Entra: $_"
     exit 1
 }
 
-$group = Get-MgGroup -GroupId $targetGroupId -ErrorAction SilentlyContinue
+$group = Get-EntraGroup -GroupId $targetGroupId -ErrorAction SilentlyContinue
 
 if (-not $group) {
     Write-Error "Target group not found"
@@ -44,38 +44,30 @@ if (-not $group) {
 
 Write-Host "Target group: $($group.DisplayName) ($targetGroupId)"
 
-$allUsers = Get-MgUser -All -Property "id,displayName,userPrincipalName,signInActivity,accountEnabled" -ErrorAction SilentlyContinue
-$users = @()
-foreach ($user in $allUsers) {
-    if ($user.AccountEnabled -and $user.SignInActivity -and $user.SignInActivity.LastSignInDateTime) {
-        $lastSignIn = [DateTime]::Parse($user.SignInActivity.LastSignInDateTime)
-        if ($lastSignIn -lt $cutoffDate) {
-            $users += $user
-        }
-    }
+$allUsers = Get-EntraUser -All -Filter "accountEnabled eq true and userType eq 'Member'" -Property "id,displayName,userPrincipalName,signInActivity" -ErrorAction SilentlyContinue
+
+$users = $allUsers | Where-Object {
+    $_.SignInActivity -and
+    $_.SignInActivity.LastSignInDateTime -and
+    $_.SignInActivity.LastSignInDateTime -lt $cutoffDate
 }
 
 Write-Host "Found $($users.Count) users inactive for $inactivityDays days"
 
 $processed = 0
 foreach ($user in $users) {
-    if ($user.AccountEnabled) {
-        try {
-            $userId = $user.Id
-            
-            Update-MgUser -UserId $userId -AccountEnabled:$false -ErrorAction Stop
-            Write-Host "Disabled account: $($user.DisplayName) ($($user.UserPrincipalName))"
-            
-            $memberParams = @{
-                "@odata.id" = "https://graph.microsoft.com/v1.0/directoryObjects/$userId"
-            }
-            New-MgGroupMember -GroupId $targetGroupId -BodyParameter $memberParams -ErrorAction Stop
-            Write-Host "Added to group: $($user.DisplayName)"
-            
-            $processed++
-        } catch {
-            Write-Warning "Failed to process user $($user.DisplayName): $_"
-        }
+    try {
+        $userId = $user.Id
+        
+        Set-EntraUser -UserId $userId -AccountEnabled:$false -ErrorAction Stop
+        Write-Host "Disabled account: $($user.DisplayName) ($($user.UserPrincipalName))"
+        
+        Add-EntraGroupMember -GroupId $targetGroupId -RefObjectId $userId -ErrorAction Stop
+        Write-Host "Added to group: $($user.DisplayName)"
+        
+        $processed++
+    } catch {
+        Write-Warning "Failed to process user $($user.DisplayName): $_"
     }
 }
 
